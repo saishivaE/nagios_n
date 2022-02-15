@@ -1,0 +1,142 @@
+#! /bin/sh
+#
+# EMG checker plugin for Nagios
+# Written by Ramil Israfilov (ramil.israfilov@nokia.com)
+# Last Modified: 25-03-2016
+#
+# Usage: ./check_emg --hostname <hostname> --port <port> --connector <connectorname>
+#
+# Description:
+#
+# This plugin will execute emgstat command (should be in the PATH).
+# First parameter is a hostname where emg is running and second parameter
+# is the connector name which is checked.
+# if that connector is BOUND - then status OK will be returned
+# If no connector exists - then UNKNOWN state will be returned
+# CRITICAL status will be returned in other state cases
+#
+#
+# Examples:
+#
+#   check_emg localhost smpp_out
+
+# Paths to commands used in this script.  These
+# may have to be modified to match your system setup.
+# TV: removed PATH restriction. Need to think more about what this means overall
+#PATH=""
+
+GREP="/bin/grep"
+AWK="/bin/awk"
+
+
+PROGNAME=`/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION="1.0.0"
+
+. $PROGPATH/utils.sh
+
+print_usage() {
+    echo "Usage: $PROGNAME --host hostname --port port --connector connector_name"
+    echo "Usage: $PROGNAME --help"
+    echo "Usage: $PROGNAME --version"
+}
+
+print_help() {
+    print_revision $PROGNAME $REVISION
+    echo ""
+    print_usage
+    echo ""
+}
+
+# Make sure the correct number of command line
+# arguments have been supplied
+
+if [ $# -lt 1 ]; then
+    print_usage
+    exit $STATE_UNKNOWN
+fi
+
+# Grab the command line arguments
+
+#hostname=$1
+#connector_name=$2
+exitstatus=$STATE_UNKNOWN #default
+while test -n "$1"; do
+    case "$1" in
+        --help)
+            print_help
+            exit $STATE_OK
+            ;;
+        -h)
+            print_help
+            exit $STATE_OK
+            ;;
+        --version)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        -V)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        --host)
+            hostname=$2
+            shift
+            ;;
+        --port)
+            port=$2
+            shift
+            ;;
+        --connector)
+            connector=$2
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            print_usage
+            exit $STATE_UNKNOWN
+            ;;
+    esac
+    shift
+done
+
+# If parameters not provided exit
+
+if [ -z $hostname ]; then
+    echo "EMG check error:  hostname is not set!"
+    exit $STATE_UNKNOWN
+elif [ -z $connector ] ; then
+    echo "EMG check error: connector name is not set!"
+    exit $STATE_UNKNOWN
+elif [ -z $port ] ; then
+    port=7185
+fi
+emg_version=`emgd -v | $GREP "ENTERPRISE MESSAGING GATEWAY [0-9]" | $AWK '{ print substr ($4,0,1) }'`
+if [ "$emg_version" == "6" ]; then
+   host_param="-host"
+   port_param="-port"
+else
+   host_param="--host"
+   port_param="--port"
+fi
+connected=`emgstat $host_param $hostname $port_param $port | $GREP -E "Could not connect to server|No response from server" `
+if [ "$connected" != "" ]; then
+    echo "EMG check CRITICAL: Could not connect to server"
+    exit $STATE_CRITICAL
+fi
+# execute emgstat
+state=`emgstat $host_param $hostname $port_param $port | $GREP -w "$connector" | $AWK '{ print $7 }'`
+if [ "$state" = "" ]; then # nothing found - no connector exists
+    echo "EMG check UNKNOWN - connector $connector not found"
+    exitstatus=$STATE_UNKNOWN
+elif [ "$state" == "BOUND" ]; then
+    echo "EMG check OK:${connector} state BOUND"
+    exitstatus=$STATE_OK
+else # Print total matche count and the last entry we found
+    echo "EMG check CRITICAL:$connector state $state"
+    exitstatus=$STATE_CRITICAL
+fi
+
+exit $exitstatus
+
+

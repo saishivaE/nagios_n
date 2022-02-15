@@ -1,0 +1,96 @@
+#!/bin/sh
+#
+# Nagios GGREPLICATION CHECK plugin.
+#
+# Usage: ./check_goldengate_replication userDB1 pwdDB1 sidDB1 nameDB1 userDB2 pwdDB2 sidDB2 nameDB2 thresholdWarn thresholdCritical
+#
+# Description:
+#
+# This plugin will check GoldenGate replication lag by comparing the count of devices on both the sites
+#
+#
+
+
+DIR=`dirname $0`
+
+PROPERTY_FILE=$DIR/parms.ini
+
+# READ the ORACLE_HOME from parms.ini
+function getProperty {
+   PROP_KEY=$1
+   PROP_VALUE=`cat $PROPERTY_FILE | grep "$PROP_KEY=" | cut -d'=' -f2`
+   echo $PROP_VALUE
+}
+
+
+ORACLE_HOME_FROM_PROP=$(getProperty "ORACLE_HOME")
+export ORACLE_HOME=${ORACLE_HOME_FROM_PROP}
+export PATH=$ORACLE_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ORACLE_HOME/lib
+
+# Get the inputs needed for connection
+DB1_username=$1
+DB1_password=$2
+DB1_SID=$3
+DB1_Location=$4
+
+DB2_username=$5
+DB2_password=$6
+DB2_SID=$7
+DB2_Location=$8
+
+Threshold_Warn=$9
+Threshold_Critical=${10}
+
+checkOutput="COUNT IDENTICAL"
+EXIT=0
+
+count1=$(
+echo "set feed off
+set pages 0
+select count(*) from device;
+exit
+"  | sqlplus -s $DB1_username/$DB1_password@$DB1_SID
+)
+
+count2=$(
+echo "set feed off
+set pages 0
+select count(*) from device;
+exit
+"  | sqlplus -s $DB2_username/$DB2_password@$DB2_SID
+)
+
+difference=$((count1-count2))
+
+
+if [ $difference -lt 0 ]
+then
+        difference=$(expr $difference : '^-\(.*\)')
+fi
+
+if [ $difference -gt $Threshold_Critical ]
+then
+        if [ $count1 -gt $count2 ]
+        then
+        checkOutput="$DB1_Location has $difference  more devices than $DB2_Location"
+        else
+                checkOutput="$DB2_Location has $difference more devices than $DB1_Location"
+        fi
+         EXIT=2;
+elif [ $difference -gt $Threshold_Warn ]
+then
+
+         if [ $count1 -gt $count2 ]
+        then
+            checkOutput="$DB1_Location has $difference more devices than $DB2_Location"
+        else
+            checkOutput="$DB2_Location has $difference more devices than $DB1_Location"
+        fi
+        EXIT=1;
+fi
+
+# Pass the output to the send_snmp_trap_cdp.sh so that this can be passed as the text in the trap
+echo $checkOutput
+
+exit $EXIT

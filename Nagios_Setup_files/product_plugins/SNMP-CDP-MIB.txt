@@ -1,0 +1,546 @@
+SNMP-CDP-MIB DEFINITIONS ::= BEGIN
+
+-- ===============================================================
+--     Copyright (C) Nokia Networks 2016
+-- ===============================================================
+--
+-- Description:  MIB file for the Nokia Networks OID
+--               registration tree used in conjunction with the
+--               Nokia CDP.
+--
+-- Protocol:     SNMP (Simple Network Management Protocol
+-- Format:       SMIv2
+--
+-- Version history:
+-- 0.1:          Initial draft version
+--
+-- ================================================================
+-- Author      : Ramil Israfilov
+-- Last Update : 2016-03-18
+-- ================================================================
+-- 28458 - Nokia Solutions and Networks
+--        .1 - NSN SNMP
+--             .44 - CDP
+--                   .1 - Fault Management
+--                        NOTE: Some of the alarms listed below will be implemented in future releases are marked "(Future release)".
+--                              Other alarms will be implemented in CDP 6.0
+--                       .1 - Node Failure
+--                            .1 - host unreachable (severity: Major)
+--                            .2 - cpu load is high (severity: Major)
+--                            .3 - disk capacity reached a critical limit (severity: Major)
+--                            .4 - web application is unreachable (severity: Major)
+--                            .5 - license issue (Future Release)
+--                            .6 - Memory usage is high (Future Release)
+--                            .7 - High Filesystem utilization (high IO)(Future Release)
+--                            .8 - HornetQ paging too high (Future Release)
+--                            .9 - Cluster size mismatch (Future Release)
+--                            .10 - Bulk Job issue (Future Release)
+--                            .11 - Error Logging is high (Future Release)
+--                            .12 - Can not reach external service (APNS, AAA, HSS, etc.) Future Release) (severity: Major)
+--                            .13 - Device Look up Failure(serverity: Major) 	
+--                            .14 - APNS Failure(serverity: Major) 	
+--                            .15 - Device Authentication Failed(serverity: Major) 	
+--                            .16 - Diameter Peer Connection Failed(serverity: Major) 	
+--                            .17 - Service Provisioning Subsystem Connection Failed(serverity: Major) 	
+--                            .18 - loadbalancer capacity limit reached(serverity: Major) 	
+--                            .19 - file upload failed (Future Release)(serverity: Major) 
+--                        .2 - DB Failure
+--                            .1 - host unreachable (severity: Major)
+--                            .2 - cpu load is high (severity: Major)
+--                            .3 - disk capacity reached a critical limit (severity: Major)
+--                            .4 - DB tablespace capacity reached a critical limit (severity: Major)
+--                        .3 - Redis server Failure
+--                            .1 - host unreachable (severity: Major)
+--                            .2 - cpu load is high (severity: Major)
+--                            .3 - disk capacity reached a critical limit (severity: Major)
+--                            .4 - memory utilization high (severity: Major)
+--                            .5 - Redis master failover occured (severity: Major)
+--                        .4 - Redis Sentinel Failure
+--                            .1 - host unreachable (severity: Major)
+--                        .5 - SMS service Failure
+--                            .1 - EMG or JSMS host unreachable (severity: Major)
+--                            .2 - Connection with SMSC center lost (severity: Major)
+--                            .3 - SMS service message queue is high (severity: Major)
+--                            .4 - High CPU load on EMG node(severity: Major) 
+--                            .5 - Disk capacity reached a critical limit on EMG node(severity: Major) 
+--                        .6 - GEO Redundancy Failure
+--                            .1 - GEO redundant site unreachable (severity: Major)
+--                            .2 - DB replication conflict (severity: Major)
+--                            .3 - DB replication lag (severity: Major)
+--                            .4 - Redundant site state change (failover) (severity: Major)
+--                            .5 - DB replication errors (severity: Major)
+--                            .6 - DB replication processes issue (severity: Major)
+--						  .7 - Entitlement Server
+--						      .1 - Websheet unreachable (serverity: Major) 	
+--                        .8 - Role Failure 
+--                            .1 - Subscription (serverity: Major) 	
+--                            .2 - Authentication (serverity: Major) 	
+--                            .3 - Websheet(serverity: Major) 	
+--                            .4 - Push(serverity: Major) 	
+--                        .9 - load balancer
+--                            .1 - not reachable (serverity: Major) 	
+--                   .2 - variable
+--                       .1 - Alarm Number
+--                       .2 - Notification id (this identifies the host)
+--                       .3 - AlarmText
+--                       .4 - Severity
+--                       .5 - AdditionalText1
+--                       .6 - AlarmTime
+
+
+IMPORTS
+        enterprises FROM SNMPv2-SMI
+        OBJECT-TYPE FROM RFC-1212
+        DisplayString FROM RFC1213-MIB
+;
+
+nokiaSiemensNetworks   OBJECT IDENTIFIER ::= { enterprises 28458 }
+nokiaSiemensNetworksSnmp   OBJECT IDENTIFIER ::= { nokiaSiemensNetworks 1 }
+
+-- ======================================================================
+-- connectedDevicePlatform is the Topmost Object Identifier in CDP
+-- ======================================================================
+connectedDevicePlatform   OBJECT IDENTIFIER ::= { nokiaSiemensNetworksSnmp 44 }
+
+--======================================================================
+-- Topmost OID for Fault Management in CDP for Faults
+--======================================================================
+cdpFaultManagement   OBJECT IDENTIFIER ::= { connectedDevicePlatform 1 }
+
+--======================================================================
+-- Topmost OID for Fault Management in CDP Node Failures
+--======================================================================
+cdpNodeFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 1 }
+
+    hostUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An CDP node is unreachable"
+    ::= { cdpNodeFaultManagement 1 }
+
+    cpuLoadTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An CDP node CPU load is high"
+    ::= { cdpNodeFaultManagement 2 }
+
+    diskCapacityTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Disk capacity reached a critical limit on CDP node"
+    ::= { cdpNodeFaultManagement 3 }
+
+    webappUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP web application is unreachable"
+    ::= { cdpNodeFaultManagement 4 }
+
+    licenseIssueTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP license issue"
+    ::= { cdpNodeFaultManagement 5 }
+
+    memoryUsageTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP Memory usage issue"
+    ::= { cdpNodeFaultManagement 6 }
+
+    fileSystemUtilizationTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP high file system utilization"
+    ::= { cdpNodeFaultManagement 7 }
+
+    hornetQPagingTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP HornetQ paging issue"
+    ::= { cdpNodeFaultManagement 8 }
+
+    clusterSizeMismatchTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP Cluster Size mismatch"
+    ::= { cdpNodeFaultManagement 9 }
+
+    bulkJobTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP Bulk Job issue"
+    ::= { cdpNodeFaultManagement 10 }
+
+    errorLoggingHighTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP Error logging is high"
+    ::= { cdpNodeFaultManagement 11 }
+
+    externalServiceTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "CDP external service unavailable"
+    ::= { cdpNodeFaultManagement 12 }
+    
+    deviceLookUpFailure NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Device Look up Failure"
+    ::= { cdpNodeFaultManagement 13 }
+    
+    apnsFailure NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "APNS Failure"
+    ::= { cdpNodeFaultManagement 14 }
+    
+    deviceAuthentication NOTIFICATION-TYPE     
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Device Authentication Failed"
+    ::= { cdpNodeFaultManagement 15 }
+    
+    diameterPeerConnectionFailure NOTIFICATION-TYPE     
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Diameter Peer Connection Failed"
+    ::= { cdpNodeFaultManagement 16 }
+    
+    serviceProvisioningSubsystemFailure NOTIFICATION-TYPE   
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Service Provisioning Subsystem Connection Failed"
+    ::= { cdpNodeFaultManagement 17 }
+    
+    lbLimitReachedTrap NOTIFICATION-TYPE     
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "MSA loadbalancer capacity limit reached"
+    ::= { cdpNodeFaultManagement 18 }
+    
+    fileUploadTrap NOTIFICATION-TYPE    
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    DESCRIPTION
+    "MSA could not upload a file to external system"
+    ::= { cdpNodeFaultManagement 19 }
+ 
+    
+   
+
+--======================================================================
+-- Topmost OID for Fault Management in DB Failures
+--======================================================================
+cdpDBFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 2 }
+
+    dbHostUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An DB node is unreachable"
+    ::= { cdpDBFaultManagement 1 }
+
+    dbCpuLoadTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An DB node CPU load is high"
+    ::= { cdpDBFaultManagement 2 }
+
+    dbDiskCapacityTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "DB Disk capacity reached a critical limit"
+    ::= { cdpDBFaultManagement 3 }
+
+    dbTablespaceCapacityTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "DB Tablespace capacity reached a critical limit"
+    ::= { cdpDBFaultManagement 4 }
+
+--======================================================================
+-- Topmost OID for Fault Management in Redis server Failures
+--======================================================================
+cdpRedisFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 3 }
+
+    redisHostUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An Redis server node is unreachable"
+    ::= { cdpRedisFaultManagement 1 }
+
+    redisCpuLoadTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An Redis Server node CPU load is high"
+    ::= { cdpRedisFaultManagement 2 }
+
+    redisDiskCapacityTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Redis Server Disk capacity reached a critical limit"
+    ::= { cdpRedisFaultManagement 3 }
+
+    redisMemoryUsageTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Redis server Memory usage issue"
+    ::= { cdpRedisFaultManagement 4 }
+
+    redisMasterFailoverTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Redis Master server failover"
+    ::= { cdpRedisFaultManagement 5 }
+
+--======================================================================
+-- Topmost OID for Fault Management in Redis Sentinel server Failures
+--======================================================================
+cdpRedisSentinelFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 4 }
+
+    redisSentinelHostUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An Redis Sentinel server node is unreachable"
+    ::= { cdpRedisSentinelFaultManagement 1 }
+
+--======================================================================
+-- Topmost OID for Fault Management in SMS service Failures
+--======================================================================
+cdpSMSFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 5 }
+
+    smsHostUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "An SMS server node is unreachable"
+    ::= { cdpSMSFaultManagement 1 }
+
+    smscServerUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "A connection to the SMSC server lost"
+    ::= { cdpSMSFaultManagement 2 }
+
+    smsMessagesHighTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "High number of messages on  SMS server"
+    ::= { cdpSMSFaultManagement 3 }
+
+    smsCpuLoadTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "High CPU load on EMG node"
+    ::= { cdpSMSFaultManagement 4 } 
+    
+    smsDiskCapacityTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Disk capacity reached a critical limit on EMG node"
+    ::= { cdpSMSFaultManagement 5 }
+    
+    
+
+--======================================================================
+-- Topmost OID for Fault Management in GEO redundancy Failures
+--======================================================================
+cdpGeoFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 6 }
+
+    geoSiteUnreachableTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "A GEO redundancy site is unreachable"
+    ::= { cdpGeoFaultManagement 1 }
+
+    geoDBReplicationConflictTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "A GEO DB replication conflict"
+    ::= { cdpGeoFaultManagement 2 }
+
+    geoDBReplicationLagTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "A GEO DB replication lag"
+    ::= { cdpGeoFaultManagement 3 }
+
+    geoSiteStateChangeTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "A GEO Site State Change"
+    ::= { cdpGeoFaultManagement 4 }
+
+    geoDBReplicationErrorTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "A GEO DB replication errors"
+    ::= { cdpGeoFaultManagement 5 }
+
+    geoDBReplicationProcessesIssueTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "A GEO DB replication processes issue"
+    ::= { cdpGeoFaultManagement 6 }
+   
+    geoDBReplicationLagTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "GoldenGate Replication lag"
+    ::= { cdpGeoFaultManagement 7 }
+
+--======================================================================
+-- Topmost OID for Fault Management for Entitlement Server Failures
+--======================================================================
+cdpESFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 7 }
+
+    websheetTrap NOTIFICATION-TYPE
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Websheet unreachable trap"
+    ::= { cdpESFaultManagement 1 }
+    
+msaRoleFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 8 }
+        
+ 
+    roleSubsFailure NOTIFICATION-TYPE      
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current  
+    DESCRIPTION
+    "Subscription service failure"
+    ::= { msaRoleFaultManagement 1 }
+
+    roleAuthFailure NOTIFICATION-TYPE      
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current  
+    DESCRIPTION
+    "Authentication service failure"
+     ::= { msaRoleFaultManagement 12 }
+
+    roleWebsFailure NOTIFICATION-TYPE        
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Websheet service failure"
+     ::= { msaRoleFaultManagement 3 }
+    
+    rolePushFailure NOTIFICATION-TYPE      
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current 
+    DESCRIPTION
+    "Push service failure"
+     ::= { msaRoleFaultManagement 4 }
+    
+--======================================================================
+-- Topmost OID for Load balance
+--======================================================================
+loadBalanceFaultManagement   OBJECT IDENTIFIER ::= { cdpFaultManagement 9 }
+
+    lbnotReachableTrap NOTIFICATION-TYPE    
+    OBJECTS { cdpAlarmNumber, cdpNotificationId, cdpAlarmText, cdpSeverity, cdpAdditionalText1, cdpAlarmTime }
+    STATUS current
+    DESCRIPTION
+    "Load balancer node unreachable"
+    ::= { loadBalanceFaultManagement 1 }
+	
+
+-- ---------------------------------------------------------------------
+-- OID for  Variables used within within SDP SNMP
+-- ---------------------------------------------------------------------
+cdpVariable    OBJECT IDENTIFIER ::= { connectedDevicePlatform 2}
+
+cdpAlarmNumber  OBJECT-TYPE
+SYNTAX  INTEGER (1..65535)
+ACCESS  read-write
+STATUS  mandatory
+DESCRIPTION
+"Alarm Number"
+::= { cdpVariable 1 }
+
+cdpNotificationId  OBJECT-TYPE
+SYNTAX  DisplayString (SIZE (0..255))
+ACCESS  read-write
+STATUS  mandatory
+DESCRIPTION
+"Notification ID"
+DEFVAL        {""}
+::= { cdpVariable 2 }
+
+cdpAlarmText  OBJECT-TYPE
+SYNTAX  DisplayString (SIZE (0..255))
+ACCESS  read-write
+STATUS  mandatory
+DESCRIPTION
+"AlarmText"
+DEFVAL        {""}
+::= { cdpVariable 3 }
+
+cdpSeverity  OBJECT-TYPE
+SYNTAX  DisplayString (SIZE (0..10))
+ACCESS  read-write
+STATUS  mandatory
+DESCRIPTION
+"Severity"
+DEFVAL        {""}
+::= { cdpVariable 4 }
+
+cdpAdditionalText1  OBJECT-TYPE
+SYNTAX  DisplayString (SIZE (0..1024))
+ACCESS  read-write
+STATUS  mandatory
+DESCRIPTION
+"AdditionalText1"
+DEFVAL        {""}
+::= { cdpVariable 5 }
+
+cdpAlarmTime  OBJECT-TYPE
+SYNTAX  DisplayString (SIZE (0..255))
+ACCESS  read-write
+STATUS  mandatory
+DESCRIPTION
+"AlarmTime"
+DEFVAL        {""}
+::= { cdpVariable 6 }
+
+END
+

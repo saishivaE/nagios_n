@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+# Nagios CDP healthcheck plugin.
+#
+
+GREP="/bin/grep"
+AWK="/bin/awk"
+TR="/usr/bin/tr"
+
+PROGNAME=`/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION="1.0.0"
+DIR=`dirname $0`
+
+. $PROGPATH/utils.sh
+
+out=`$DIR/check_http "$@"`
+#while IFS= read -r line
+#do
+#  echo "$line"
+#done < <(printf '%s\n' "$out")
+
+message=""
+exitstatus=$STATE_OK
+while IFS= read -r line
+do
+  if grep -q "HTTP CRITICAL" <<<$line ; then
+    message="$line"
+    exitstatus=$STATE_CRITICAL
+    break
+  elif  grep -q "HTTP WARNING" <<<$line; then
+     message="$line"
+     exitstatus=$STATE_WARNING
+     break
+  else
+
+     if [[ "$line" =~ .*\<td\>(.*)\<\/td\> ]]; then
+
+            m=${BASH_REMATCH[1]}
+            if [ "$m" = "FAILED" ];then
+                exitstatus=$STATE_CRITICAL
+            fi
+            message="$message : $m"
+
+     fi
+  fi
+done < <(printf '%s\n' "$out")
+
+echo $message
+exit $exitstatus
+
+

@@ -1,0 +1,161 @@
+#!/bin/bash
+#
+# CDP GEO state checker plugin for Nagios
+# Written by Ramil Israfilov (ramil.israfilov@nokia.com)
+# Last Modified: 04-05-2016
+#
+# Usage: ./check_geostate --host <hostname> --port <port> --username user --password password
+#
+# Description:
+#
+# This plugin will try to check if CDP server SCE property  did changed from ACTIVE to STANDBY or vice-versa.
+# <hostname> parameter is a hostname where CDP server is running and <port> parameter is the web server port of CDP.
+# First time then plugin runs on server it will save current state of  CDP GEO state.
+# If during next runs state will change from ACTIVE to STANDBY or STANDBY to ACTIVE then WARNING exit status will be returned
+# If state remain unchanged OK status will be returned.
+# The check script is using helper check_http script to get value using REST call
+#
+# Notes:
+#
+# If you use this plugin make sure to keep the following in mind:
+#
+#    1.  The "max_attempts" value for the service should be 1, as this
+#        will prevent Nagios from retrying the service check (the
+#        next time the check is run it will not produce the same results).
+#
+#PATH=""
+
+GREP="/bin/grep"
+AWK="/bin/awk"
+TR="/usr/bin/tr"
+
+PROGNAME=`/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION="1.0.0"
+DIR=`dirname $0`
+
+. $PROGPATH/utils.sh
+
+print_usage() {
+    echo "Usage: $PROGNAME --host hostname --port port --username user --password password"
+    echo "Usage: $PROGNAME --help"
+    echo "Usage: $PROGNAME --version"
+}
+
+print_help() {
+    print_revision $PROGNAME $REVISION
+    echo ""
+    print_usage
+    echo ""
+}
+
+# Make sure the correct number of command line
+# arguments have been supplied
+
+if [ $# -lt 1 ]; then
+    print_usage
+    exit $STATE_UNKNOWN
+fi
+
+# Grab the command line arguments
+
+#hostname=$1
+#connector_name=$2
+exitstatus=$STATE_UNKNOWN #default
+while test -n "$1"; do
+    case "$1" in
+        --help)
+            print_help
+            exit $STATE_OK
+            ;;
+        -h)
+            print_help
+            exit $STATE_OK
+            ;;
+        --version)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        -V)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        --host)
+            hostname=$2
+            shift
+            ;;
+        --port)
+            port=$2
+            shift
+            ;;
+        --username)
+            username=$2
+            shift
+            ;;
+        --password)
+            password=$2
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            print_usage
+            exit $STATE_UNKNOWN
+            ;;
+    esac
+    shift
+done
+
+# If parameters not provided exit
+
+if [ -z $hostname ]; then
+    echo "GEO state check error:  hostname is not set!"
+    exit $STATE_UNKNOWN
+elif [ -z $port ] ; then
+    port=8080
+fi
+
+state=`$DIR/check_http -I $hostname -p $port  -u /rest/sce/string/geo.redundant.site.state -a $username:$password -r 'ACTIVE|STANDBY' -v `
+currentstate=''
+
+while IFS= read -r line
+do
+  if [ "$line" == "ACTIVE" ]; then
+    currentstate='ACTIVE'
+  fi
+  if [ "$line" == "STANDBY" ]; then
+    currentstate='STANDBY'
+  fi
+
+done < <(printf '%s\n' "$state")
+
+state_file="/tmp/getstate_check_log.${hostname}_${port}"
+if [ "$currentstate" == "" ]; then # nothing found - issue with server connection
+    if [ -f $state_file ]; then
+       echo "GEO state check CRITICAL - server is down"
+       exit $STATE_CRITICAL
+    else
+       echo "GEO state check UNKNOWN - state is unknown"
+       exitstatus=$STATE_UNKNOWN
+    fi
+else
+   if [ ! -f $state_file ]; then
+      echo "GEO state check ok: First run. current state: ${currentstate}";
+      echo -n "$currentstate" > $state_file
+      exit $STATE_OK
+   else
+      old_state=`cat $state_file`;
+   fi
+
+   if [ "$currentstate" == "$old_state" ]; then
+      echo "GEO state check OK: state is unchanged $old_state"
+      exitstatus=$STATE_OK
+   else
+      echo "GEO state check WARNING  state changed from ${old_state} to ${currentstate}"
+      exitstatus=$STATE_WARNING
+      echo -n "$currentstate" > $state_file
+   fi
+fi
+
+exit $exitstatus
+
+

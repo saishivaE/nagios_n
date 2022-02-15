@@ -1,0 +1,109 @@
+#!/bin/bash
+#
+# Nagios JMX plugin.
+#
+#Set script name
+SCRIPT=`basename ${BASH_SOURCE[0]}`
+
+# help function
+function printHelp {
+
+  echo -e \\n"Help for $SCRIPT"\\n
+  echo -e "Basic usage: $SCRIPT -U <service_url> -O <object_name> -A <attribute_name>   --username --password -w {warning} -c {critical} -W {warning} -C {critical}"\\n
+  echo "-U - Sets service_url to access JMX example: -U  "service:jmx:remoting-jmx://131.251.90.21:10099""
+  echo "-O - Sets object name object_name example -O  mdm:type=transport,name=APNS"
+  echo "-A - Sets attribute_name to be retrieved -A Failure"
+  echo "--username - Sets username to access the JMX URL. example :--username mdm"
+  echo "--password - Sets password to access the JMX URL. example :--password mdm@12 "
+  echo "-w - Sets warning value for JMX counter."
+  echo "-w - Sets warning value for JMX counter."
+  echo "-c - Sets critical value for JMX counter."
+  echo "-W - Sets warning value for JMX counter."
+  echo "-C - Sets critical value for JMX counter."
+}
+
+ 
+
+RESULT=1 
+JAVA_CMD=`which java`
+
+if [ -z $JAVA_CMD ]
+then
+
+  if [ -x $JAVA_HOME/bin/java ]
+  then
+    JAVA_CMD=$JAVA_HOME/bin/java
+  else
+    echo JMX CRITICAL - java not found.
+    exit 2
+  fi
+
+fi
+
+# regex to check is OPTARG an integer
+re='^[0-9]+$'
+ 
+if ! [[ ${12} =~ $re ]] ; then
+        echo "Warning threshold required, error: Not a number" ; exit 3
+      else
+        WARN_THRESHOULD=${12}
+fi
+if ! [[ ${14} =~ $re ]] ; then
+        echo "Critical threshold required,error: Not a number"; exit 3
+      else
+        CRITICAL_THRESHOULD=${14}
+fi
+      
+      
+
+#create tmp file using node attribute, node url  and jmx url 
+CACHE="/tmp/jmx-status-$6`/bin/echo "$4$2" | /usr/bin/md5sum | /usr/bin/cut -d" " -f1`.cache"
+if [ -s "$CACHE" ]; then
+     TIMECACHE=$(cat $CACHE)
+else
+    TIMECACHE=0
+fi
+
+
+DIR=`dirname $0`
+out=`$JAVA_CMD -cp  $DIR/jboss-client.jar:$DIR/check_jmx.jar ch.syabru.nagios.NagiosJmxPlugin "$@" `
+
+
+JMX_COUNT=$(echo $out | /usr/bin/cut -d'=' -f2 | /usr/bin/cut -d'|' -f1 | xargs)
+
+if ! [[ ${JMX_COUNT} =~ $re ]] ; then
+        echo "$out"; 
+        exit 2       
+fi
+
+
+#echo ">> $JMX_COUNT $TIMECACHE "
+
+COUNT=`expr $JMX_COUNT - $TIMECACHE`
+
+if [ $COUNT -gt $CRITICAL_THRESHOULD ] || [ $COUNT -eq $CRITICAL_THRESHOULD ]; then
+   EXIT=2
+elif [ $COUNT -gt $WARN_THRESHOULD ] || [ $COUNT -eq $WARN_THRESHOULD ] ; then
+    EXIT=1
+else
+   EXIT=0
+   
+ fi
+
+TIMECACHE=$JMX_COUNT
+
+#if warn or critical ,then save in local cache for future threshold comparison.
+if [ $EXIT -gt 0 -o $COUNT -lt 0 ]; then
+   (/bin/echo $TIMECACHE )> $CACHE || exit 1    
+fi
+
+
+
+
+#status and quit
+echo "JMX Node:$4!$6 - count: $COUNT"
+exit $EXIT
+
+
+
+ 

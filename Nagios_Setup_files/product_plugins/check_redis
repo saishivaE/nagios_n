@@ -1,0 +1,146 @@
+#!/bin/sh
+#
+# Redis failover checker plugin for Nagios
+# Written by Ramil Israfilov (ramil.israfilov@nokia.com)
+# Last Modified: 25-03-2016
+#
+# Usage: ./check_redis --hostname <hostname> --port <port>
+#
+# Description:
+#
+# This plugin will try to check if Redis server did failover.
+# <hostname> parameter is a hostname where Redis server is running and <port> parameter
+# First time then plugin runs on server it will save current state of Redis server.
+# If during next runs state will change from master to slave then CRITICAL exit status will be returned
+# If during next runs state will change from slave to master then WARNING exit status will be returned
+# If state remain unchanged OK status will be returned.
+# The check script is using helper redis-status.sh script
+#
+# Notes:
+#
+# If you use this plugin make sure to keep the following in mind:
+#
+#    1.  The "max_attempts" value for the service should be 1, as this
+#        will prevent Nagios from retrying the service check (the
+#        next time the check is run it will not produce the same results).
+#
+#PATH=""
+
+GREP="/bin/grep"
+AWK="/bin/awk"
+TR="/usr/bin/tr"
+
+PROGNAME=`/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION="1.0.0"
+DIR=`dirname $0`
+
+. $PROGPATH/utils.sh
+
+print_usage() {
+    echo "Usage: $PROGNAME --host hostname --port port"
+    echo "Usage: $PROGNAME --help"
+    echo "Usage: $PROGNAME --version"
+}
+
+print_help() {
+    print_revision $PROGNAME $REVISION
+    echo ""
+    print_usage
+    echo ""
+}
+
+# Make sure the correct number of command line
+# arguments have been supplied
+
+if [ $# -lt 1 ]; then
+    print_usage
+    exit $STATE_UNKNOWN
+fi
+
+# Grab the command line arguments
+
+#hostname=$1
+#connector_name=$2
+exitstatus=$STATE_UNKNOWN #default
+while test -n "$1"; do
+    case "$1" in
+        --help)
+            print_help
+            exit $STATE_OK
+            ;;
+        -h)
+            print_help
+            exit $STATE_OK
+            ;;
+        --version)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        -V)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        --host)
+            hostname=$2
+            shift
+            ;;
+        --port)
+            port=$2
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            print_usage
+            exit $STATE_UNKNOWN
+            ;;
+    esac
+    shift
+done
+
+# If parameters not provided exit
+
+if [ -z $hostname ]; then
+    echo "Redis check error:  hostname is not set!"
+    exit $STATE_UNKNOWN
+elif [ -z $port ] ; then
+    port=6379
+fi
+state=`$DIR/redis-status.sh $hostname role none $port | $TR -d '\r' `
+echo "state $state"
+state_file="/tmp/redis_check_log.${hostname}_${port}"
+if [ "$state" = "" ]; then # nothing found - issue with server connection
+    if [ -f $state_file ]; then
+       echo "REDIS check CRITICAL - server is down"
+       exit $STATE_CRITICAL
+    else
+       echo "REDIS check UNKNOWN - state is unknown"
+       exitstatus=$STATE_UNKNOWN
+    fi
+else
+   if [ ! -f $state_file ]; then
+      echo "REDIS check ok: First run. current state: ${state}";
+      echo -n "$state" > $state_file 
+      exit $STATE_OK
+   else
+      old_state=`cat $state_file`;
+   fi
+
+   if [ "$state" == "$old_state" ]; then
+      echo "REDIS check OK: state is unchanged $old_state"
+      exitstatus=$STATE_OK
+   else
+      if [ "$old_state" == "master" ]; then
+         echo "REDIS CRITICAL  state changed from ${old_state} to ${state}"
+	 exitstatus=$STATE_CRITICAL
+      else
+         echo "REDIS WARNING  state changed from ${old_state} to ${state}"
+	 exitstatus=$STATE_WARNING
+      fi
+      echo -n "$state" > $state_file 
+   fi
+fi
+
+exit $exitstatus
+
+

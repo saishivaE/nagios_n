@@ -1,0 +1,166 @@
+#!/bin/sh
+#
+# Nagios LICENSE CHECK plugin.
+#
+# Usage: ./check_license thresholdPercentWarn thresholdPercentCritical thresholdDaysWarn thresholdDaysCritical cdpIP cdpPort cdpUsername cdpPassword
+#
+# Author: Ashwini Patki
+#
+# Description:
+#
+# This plugin checks the CDP license whether its about to approach(WARNING) or is near expiry(CRITICAL). 
+# The checks done are against the
+# 1. License Expiry Date
+# 1. Total count 
+# 2. Total ES count
+# 3. Total Advanced count
+# 4. Total Gateway Devices
+# 5. Total RCS devices
+# 6. Total number of tenants
+#
+#
+#
+
+
+DIR=`dirname $0`
+
+# Retrieve the arguments
+thresholdPercentWarn=${1}
+thresholdPercentCritical=${2}
+thresholdDaysWarn=${3}
+thresholdDaysCritical=${4}
+cdpIP=${5}
+cdpPort=${6}
+cdpUsername=${7}
+cdpPassword=${8}
+
+# This variable stores the result message
+checkOutput="License is valid"
+
+# This variable stores the exit code
+EXIT=0
+
+# This variable is set to true when any of the license fields has crossed the criticalThreshold
+isCritical=false
+
+# This variable is set to true when any of the license fields has crossed the warnThreshold but is still lower than the criticalThreshold
+isWarning=false
+
+
+function constructCheckOutput()
+{
+
+  if [ "$checkOutput" = "License is valid" ]
+  then 
+  {
+       checkOutput=$1
+  }
+  else
+  { 
+    checkOutput="$checkOutput, $1"
+  }
+  fi
+
+ 
+}
+
+
+function isLimitReaching()
+{
+   currentValue=$1
+   limitValue=$2
+   parameter=$3
+   
+	# Ignore the parameters that dont have a limit
+   if [ $limitValue != -1 ]
+   then  
+	{
+
+	   difference=$((limitValue-currentValue))
+	   diffInPercent=$((200*$currentValue/$limitValue % 2 + 100*$currentValue/$limitValue))
+	   # echo "percentage $3 :  $diffInPercent , thresholdPercentCritical=$thresholdPercentCritical , thresholdPercentWarn=$thresholdPercentWarn"
+	   if [ $diffInPercent -gt $thresholdPercentCritical ]
+	   then
+	   {
+	     isCritical=true;
+	     constructCheckOutput "$3 is reaching limit"
+	   }   
+	   elif [ $diffInPercent -gt $thresholdPercentWarn ] && [ $diffInPercent -lt $thresholdPercentCritical ]
+	   then
+	   {
+	     isWarning=true;
+	     constructCheckOutput "$3 will soon reach limit"
+	   }
+	   fi
+	}
+     fi
+
+ 
+
+}
+
+
+# Make a REST call to retrieve the About information from CDP
+
+
+about_result=$(curl -s -u $cdpUsername:$cdpPassword -X GET --header "Accept: application/json" "http://$cdpIP:$cdpPort/rest/about")
+
+
+
+# Retrieve the licenseInfo from JSON response
+export PYTHONIOENCODING=utf8
+licenceInfo_numberofSubscribers=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licenseNumberOfSubscribers']";`
+licenseInfo_licenseBasicCount=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licenseBasicCount']";`
+licenseInfo_licenseExpirationDate=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licenseExpirationDate']";`
+licenseInfo_licenseAdvancedCount=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licenseAdvancedCount']";`
+licenseInfo_licensedNumberOfESDevices=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licensedNumberOfESDevices']";`
+licenseInfo_licensedNumberOfRcsDevices=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licensedNumberOfRcsDevices']";`
+licenseInfo_licensedNumberOfTenants=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licensedNumberOfTenants']";`
+licenseInfo_licenseNumberOfGatewayConnectedDevices=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['licenseInfo']['licenseNumberOfGatewayConnectedDevices']";`
+
+
+# Retrieve the operationalInfo from the JSON response
+operationalInfo_currentAdvancedSubscribers=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['operationalInfo']['currentAdvancedSubscribers']";`
+operationalInfo_currentBasicSubsribers=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['operationalInfo']['currentBasicSubsribers']";`
+operationalInfo_currentESDeviceCount=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['operationalInfo']['currentESDeviceCount']";`
+operationalInfo_currentRcsDeviceCount=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['operationalInfo']['currentRcsDeviceCount']";`
+operationalInfo_gatewayConnectedDevice=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['operationalInfo']['gatewayConnectedDevice']";`
+operationalInfo_currentNumberOfTenants=`echo $about_result | python -c "import json,sys;obj=json.load(sys.stdin);print obj['operationalInfo']['currentTenantCount']";`
+
+# compare the license Expiry Date
+licenseExpDateInSecs=$(date -d "$licenseInfo_licenseExpirationDate" +%s)
+nowInSecs=$(date +%s)
+diffInDays=$(( ($licenseExpDateInSecs-$nowInSecs) / ( 60*60*24) ))
+
+if [ $diffInDays -lt $thresholdDaysCritical ]
+then
+	isCritical=true;
+    constructCheckOutput "License will expire in $diffInDays days! Renew the license"
+elif [[ ( $diffInDays -lt $thresholdDaysWarn ) && ( $diffInDays -gt $thresholdDaysCritical) ]]
+then 
+	isWarning=true;
+    constructCheckOutput "License will expire in $diffInDays days."
+fi
+
+# Check if the limits are reaching
+isLimitReaching $operationalInfo_gatewayConnectedDevice $licenseInfo_licenseNumberOfGatewayConnectedDevices "Gateway Connected Devices"
+isLimitReaching $operationalInfo_currentRcsDeviceCount $licenseInfo_licensedNumberOfRcsDevices "RCS Devices"
+isLimitReaching $operationalInfo_currentESDeviceCount $licenseInfo_licensedNumberOfESDevices "ES Devices"
+isLimitReaching $operationalInfo_currentNumberOfTenants $licenseInfo_licensedNumberOfTenants "Tenants"
+isLimitReaching $operationalInfo_currentAdvancedSubscribers $licenseInfo_licenseAdvancedCount "Advanced Devices"
+isLimitReaching $operationalInfo_currentBasicSubsribers $licenceInfo_numberofSubscribers "Total Devices"
+
+
+
+# Pass the output to the send_snmp_trap_cdp.sh so that this can be passed as the text in the trap
+echo $checkOutput
+
+if [ "$isCritical" == "true" ]
+then EXIT=2;
+elif [ "$isWarning" == "true" ]
+then EXIT=1;
+fi
+
+
+exit $EXIT
+

@@ -1,0 +1,161 @@
+#!/bin/bash
+#
+# GoldenGate checker plugin for Nagios
+# Written by Ramil Israfilov (ramil.israfilov@nokia.com)
+# Last Modified: 27-04-2016
+#
+# Usage: ./check_goldengate --lag|--processes|--errors|--delay
+#
+# Description:
+#
+# This plugin will check GoldenGate lag, process status or goldenGate errors
+# Helper gg_monitor.pl script is used to launch and check the gg_cli. The output of helper script will be parsed to produce nagios exit codes
+
+GREP="/bin/grep"
+AWK="/bin/awk"
+TR="/usr/bin/tr"
+
+PROGNAME=`/bin/basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION="1.0.0"
+DIR=`dirname $0`
+
+. $PROGPATH/utils.sh
+
+print_usage() {
+    echo "Usage: $PROGNAME --gg_home <gg_home> <--lag|--processes|--errors|--delay>"
+    echo "Usage: $PROGNAME --help"
+    echo "Usage: $PROGNAME --version"
+}
+
+print_help() {
+    print_revision $PROGNAME $REVISION
+    echo ""
+    print_usage
+    echo ""
+}
+
+# Make sure the correct number of command line
+# arguments have been supplied
+
+if [ $# -lt 1 ]; then
+    print_usage
+    exit $STATE_UNKNOWN
+fi
+
+# Grab the command line arguments
+
+#hostname=$1
+#connector_name=$2
+exitstatus=$STATE_UNKNOWN #default
+checklag=false
+checkprocesses=false
+checkerrors=false
+checkdelay=false
+
+while test -n "$1"; do
+    case "$1" in
+        --help)
+            print_help
+            exit $STATE_OK
+            ;;
+        -h)
+            print_help
+            exit $STATE_OK
+            ;;
+        --version)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+        -V)
+            print_revision $PROGNAME $REVISION
+            exit $STATE_OK
+            ;;
+         --gg_home)
+            gg_home=$2
+            shift
+            ;;
+        --lag)
+            checklag=true
+            ;;
+        --processes)
+            checkprocesses=true
+            ;;
+        --errors)
+            checkerrors=true
+            ;;
+        --delay)
+            checkdelay=true
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            print_usage
+            exit $STATE_UNKNOWN
+            ;;
+    esac
+    shift
+done
+
+if [ -z $gg_home ]; then
+    echo "GoldenGate check error:  gg_home is not set!"
+    exit $STATE_UNKNOWN
+fi
+TMPDIR="/tmp"
+mkdir -p $TMPDIR/monitor
+state=`$DIR/gg_monitor.pl $gg_home $DIR/parms.ini $TMPDIR `
+printlog=false
+#while IFS= read -r line
+#do
+#  echo "$line"
+#done < <(printf '%s\n' "$state")
+
+while IFS= read -r line
+do
+  if [ "$line" = "STATUS->OK" ]; then
+    echo "$line"
+    exitstatus=$STATE_OK
+    break
+  else
+    if grep -q "ggserr.log ERRORS"  <<<$line; then
+        printlog=true
+    fi
+    if  $checklag && grep -q "has exceeded DML lag" <<<$line ; then
+        echo "$line"
+        exitstatus=$STATE_CRITICAL
+        break
+    fi
+    if  $checkdelay && grep -q "has exceeded CHKP delay" <<<$line ; then
+        echo "$line"
+        exitstatus=$STATE_CRITICAL
+        break
+    fi
+    if  $checkprocesses && grep -q "WARNING Process counts for" <<<$line ; then
+        echo "$line"
+        exitstatus=$STATE_WARNING
+        break
+    fi
+    if  $checkprocesses && grep -q "has status" <<<$line ; then
+        echo "$line"
+        exitstatus=$STATE_CRITICAL
+        break
+    fi
+    if  $checkerrors && grep -q "no ERROR messages found" <<<$line ; then
+        exitstatus=$STATE_OK
+        break
+    fi
+    if $checkerrors ; then
+        if $printlog ; then
+            echo "$line"
+        fi
+        exitstatus=$STATE_CRITICAL
+    else
+        exitstatus=$STATE_OK
+    fi
+  fi
+done < <(printf '%s\n' "$state")
+if [ "$exitstatus" == "$STATE_OK" ]; then
+   echo "OK"
+fi
+exit $exitstatus
+
+
